@@ -3,12 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecting | NVIDIA 深度学习工具全景图</title>
-    <meta http-equiv="refresh" content="0; url=./notes/nvidia_deep_learning_tools/">
+    <title>NVIDIA 深度学习工具全景图</title>
+    <meta name="description" content="NVIDIA 深度学习工具链的分层全景图，涵盖 CUDA、cuDNN、NCCL、容器与主流框架之间的关系。">
     <link rel="canonical" href="https://mantastack.github.io/Manta-Learning-Journal/notes/nvidia_deep_learning_tools/">
-    <script>
-        window.location.replace('./notes/nvidia_deep_learning_tools/');
-    </script>
     <style>
         * {
             margin: 0;
@@ -24,32 +21,38 @@
             line-height: 1.6;
         }
 
-        .legacy-banner {
-            max-width: 1200px;
-            margin: 24px auto 0;
-            padding: 0 20px;
-        }
-
-        .legacy-banner p {
-            display: inline-flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            padding: 10px 14px;
-            border-radius: 999px;
-            background: rgba(118, 185, 0, 0.14);
-            color: #d9f99d;
-            font-size: 0.92em;
-        }
-
-        .legacy-banner a {
-            color: #00d4ff;
-            text-decoration: none;
-        }
-
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 40px 20px;
+        }
+
+        .page-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .page-nav a {
+            display: inline-flex;
+            align-items: center;
+            min-height: 40px;
+            padding: 0 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.14);
+            color: #b8c7e0;
+            text-decoration: none;
+            background: rgba(255,255,255,0.04);
+            transition: transform 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+        }
+
+        .page-nav a:hover,
+        .page-nav a:focus-visible {
+            transform: translateY(-2px);
+            border-color: rgba(118, 185, 0, 0.45);
+            color: #fff;
+            outline: none;
         }
 
         header {
@@ -494,13 +497,15 @@
             background: #4a69bd;
         }
     </style>
-<base target="_blank">
 </head>
 <body>
-    <div class="legacy-banner">
-        <p>页面已迁移到新目录。若未自动跳转，请访问 <a href="./notes/nvidia_deep_learning_tools/">新地址</a>。</p>
-    </div>
     <div class="container">
+        <nav class="page-nav" aria-label="页面导航">
+            <a href="../../">返回首页</a>
+            <a href="../">返回归档</a>
+            <a href="https://docs.nvidia.com" target="_blank" rel="noreferrer">NVIDIA Docs</a>
+        </nav>
+
         <header>
             <h1>NVIDIA 深度学习工具全景图</h1>
             <p>从 GPU 硬件到训练框架，一张图看懂 CUDA 生态中各组件的定位与关系</p>
@@ -885,7 +890,14 @@
 
         <footer>
             <p>NVIDIA 深度学习工具全景图 | 基于 CUDA 12.x / NGC 2026 版本整理</p>
-            <p style="margin-top: 10px; font-size: 0.85em;">建议始终参考 <a href="https://docs.nvidia.com" style="color: #76b900; text-decoration: none;">NVIDIA 官方文档</a> 获取最新信息</p>
+            <p style="margin-top: 10px; font-size: 0.85em;">
+                建议始终参考
+                <a href="https://docs.nvidia.com" target="_blank" rel="noreferrer" style="color: #76b900; text-decoration: none;">NVIDIA 官方文档</a>
+                获取最新信息，站内导航可返回
+                <a href="../../" style="color: #00d4ff; text-decoration: none;">首页</a>
+                或
+                <a href="../" style="color: #00d4ff; text-decoration: none;">笔记归档</a>
+            </p>
         </footer>
     </div>
 
