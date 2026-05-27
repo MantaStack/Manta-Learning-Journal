@@ -11,14 +11,12 @@
 │   ├── index.html
 │   └── nvidia_deep_learning_tools/
 │       └── index.html
-├── nvidia_deep_learning_tools.html
 └── README.md
 ```
 
 - `index.html`：站点首页，负责导航和精选入口。
 - `notes/index.html`：笔记归档页，集中展示全部内容。
 - `notes/<slug>/index.html`：单篇笔记的规范路径。
-- `nvidia_deep_learning_tools.html`：兼容旧外链的跳转页。
 
 ## 在线访问
 
