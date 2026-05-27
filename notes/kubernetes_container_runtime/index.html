@@ -1,11 +1,20 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kubernetes 容器运行时架构图 (修正版)</title>
+    <title>Kubernetes 容器运行时架构图</title>
+    <meta name="description" content="Kubernetes 容器运行时全栈架构，从 K8s 控制平面到硬件虚拟化的完整调用链。">
+    <link rel="canonical"
+        href="https://mantastack.github.io/Manta-Learning-Journal/notes/kubernetes_container_runtime/">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background: #0f172a;
@@ -13,16 +22,47 @@
             min-height: 100vh;
             padding: 40px 20px;
         }
+
         .container {
             max-width: 1100px;
             margin: 0 auto;
         }
+
+        /* Navigation */
+        .page-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .page-nav a {
+            display: inline-flex;
+            align-items: center;
+            min-height: 36px;
+            padding: 0 16px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            text-decoration: none;
+            background: rgba(255, 255, 255, 0.03);
+            transition: all 0.2s ease;
+            font-size: 13px;
+        }
+
+        .page-nav a:hover {
+            border-color: rgba(59, 130, 246, 0.4);
+            color: #f8fafc;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
         h1 {
             text-align: center;
             color: #f8fafc;
             margin-bottom: 8px;
             font-size: 26px;
         }
+
         .subtitle {
             text-align: center;
             color: #64748b;
@@ -47,18 +87,27 @@
             position: relative;
             min-width: 200px;
             backdrop-filter: blur(8px);
+            transition: transform 0.2s ease, border-color 0.2s ease;
         }
+
+        .node:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
         .node-title {
             font-size: 15px;
             font-weight: 600;
             color: #f1f5f9;
             margin-bottom: 4px;
         }
+
         .node-desc {
             font-size: 11px;
             color: #94a3b8;
             line-height: 1.4;
         }
+
         .node-badge {
             display: inline-block;
             font-size: 10px;
@@ -66,38 +115,101 @@
             border-radius: 4px;
             margin-top: 6px;
             font-weight: 500;
-            background: rgba(255,255,255,0.06);
+            background: rgba(255, 255, 255, 0.06);
             color: #94a3b8;
         }
 
         /* Colors */
-        .c-k8s { border-color: rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.08); }
-        .c-k8s .node-title { color: #60a5fa; }
-        .c-kubelet { border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.08); }
-        .c-kubelet .node-title { color: #4ade80; }
-        .c-ctr { border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08); }
-        .c-ctr .node-title { color: #fbbf24; }
-        .c-runtime { border-color: rgba(168, 85, 247, 0.4); background: rgba(168, 85, 247, 0.08); }
-        .c-runtime .node-title { color: #c084fc; }
-        .c-vmm { border-color: rgba(236, 72, 153, 0.4); background: rgba(236, 72, 153, 0.08); }
-        .c-vmm .node-title { color: #f472b6; }
-        .c-kvm { border-color: rgba(100, 116, 139, 0.4); background: rgba(100, 116, 139, 0.08); }
-        .c-kvm .node-title { color: #cbd5e1; }
-        .c-hw { border-color: rgba(120, 113, 108, 0.4); background: rgba(120, 113, 108, 0.08); }
-        .c-hw .node-title { color: #a8a29e; }
-        .c-guest { border-color: rgba(45, 212, 191, 0.4); background: rgba(45, 212, 191, 0.08); }
-        .c-guest .node-title { color: #5eead4; }
-        .c-container { border-color: rgba(148, 163, 184, 0.2); background: rgba(15, 23, 42, 0.6); }
-        .c-container .node-title { color: #e2e8f0; }
+        .c-k8s {
+            border-color: rgba(59, 130, 246, 0.4);
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        .c-k8s .node-title {
+            color: #60a5fa;
+        }
+
+        .c-kubelet {
+            border-color: rgba(34, 197, 94, 0.4);
+            background: rgba(34, 197, 94, 0.08);
+        }
+
+        .c-kubelet .node-title {
+            color: #4ade80;
+        }
+
+        .c-ctr {
+            border-color: rgba(245, 158, 11, 0.4);
+            background: rgba(245, 158, 11, 0.08);
+        }
+
+        .c-ctr .node-title {
+            color: #fbbf24;
+        }
+
+        .c-runtime {
+            border-color: rgba(168, 85, 247, 0.4);
+            background: rgba(168, 85, 247, 0.08);
+        }
+
+        .c-runtime .node-title {
+            color: #c084fc;
+        }
+
+        .c-vmm {
+            border-color: rgba(236, 72, 153, 0.4);
+            background: rgba(236, 72, 153, 0.08);
+        }
+
+        .c-vmm .node-title {
+            color: #f472b6;
+        }
+
+        .c-kvm {
+            border-color: rgba(100, 116, 139, 0.4);
+            background: rgba(100, 116, 139, 0.08);
+        }
+
+        .c-kvm .node-title {
+            color: #cbd5e1;
+        }
+
+        .c-hw {
+            border-color: rgba(120, 113, 108, 0.4);
+            background: rgba(120, 113, 108, 0.08);
+        }
+
+        .c-hw .node-title {
+            color: #a8a29e;
+        }
+
+        .c-guest {
+            border-color: rgba(45, 212, 191, 0.4);
+            background: rgba(45, 212, 191, 0.08);
+        }
+
+        .c-guest .node-title {
+            color: #5eead4;
+        }
+
+        .c-container {
+            border-color: rgba(148, 163, 184, 0.2);
+            background: rgba(15, 23, 42, 0.6);
+        }
+
+        .c-container .node-title {
+            color: #e2e8f0;
+        }
 
         /* Connector lines */
         .vline {
             width: 2px;
             height: 28px;
-            background: linear-gradient(to bottom, rgba(148,163,184,0.3), rgba(148,163,184,0.1));
+            background: rgba(148, 163, 184, 0.2);
             position: relative;
         }
-        .vline::after {
+
+        .vline.with-arrow::after {
             content: '';
             position: absolute;
             bottom: -3px;
@@ -105,12 +217,7 @@
             transform: translateX(-50%);
             border-left: 4px solid transparent;
             border-right: 4px solid transparent;
-            border-top: 5px solid rgba(148,163,184,0.3);
-        }
-        .hline {
-            height: 2px;
-            background: rgba(148,163,184,0.2);
-            position: relative;
+            border-top: 5px solid rgba(148, 163, 184, 0.3);
         }
 
         /* Branch container */
@@ -120,17 +227,8 @@
             justify-content: center;
             gap: 60px;
             position: relative;
-            padding-top: 20px;
         }
-        .branches::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 25%;
-            right: 25%;
-            height: 2px;
-            background: rgba(148,163,184,0.2);
-        }
+
         .branch {
             flex: 1;
             max-width: 420px;
@@ -138,14 +236,51 @@
             flex-direction: column;
             align-items: center;
         }
+
+        .branch-connector {
+            width: 100%;
+            height: 28px;
+            position: relative;
+        }
+
+        .branch-connector::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 2px;
+            height: 100%;
+            background: rgba(148, 163, 184, 0.2);
+            transform: translateX(-50%);
+        }
+
+        .branch-connector.left::after,
+        .branch-connector.right::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            height: 2px;
+            width: calc(50% + 30px);
+            background: rgba(148, 163, 184, 0.2);
+        }
+
+        .branch-connector.left::after {
+            right: 50%;
+        }
+
+        .branch-connector.right::after {
+            left: 50%;
+        }
+
         .branch-label {
             font-size: 12px;
             color: #64748b;
             margin-bottom: 12px;
-            background: rgba(30,41,59,0.9);
+            background: rgba(30, 41, 59, 0.9);
             padding: 4px 14px;
             border-radius: 20px;
-            border: 1px solid rgba(148,163,184,0.15);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            z-index: 1;
         }
 
         /* VMM selector */
@@ -158,6 +293,7 @@
             background: rgba(236, 72, 153, 0.03);
             position: relative;
         }
+
         .vmm-selector-title {
             text-align: center;
             font-size: 11px;
@@ -166,11 +302,13 @@
             letter-spacing: 1px;
             text-transform: uppercase;
         }
+
         .vmm-options {
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
+
         .vmm-option {
             display: flex;
             align-items: center;
@@ -180,6 +318,7 @@
             border-radius: 8px;
             border: 1px solid rgba(236, 72, 153, 0.15);
         }
+
         .vmm-radio {
             width: 14px;
             height: 14px;
@@ -188,6 +327,7 @@
             flex-shrink: 0;
             position: relative;
         }
+
         .vmm-radio.active::after {
             content: '';
             position: absolute;
@@ -198,11 +338,21 @@
             background: #f472b6;
             border-radius: 50%;
         }
+
         .vmm-info {
             text-align: left;
         }
-        .vmm-name { font-size: 13px; color: #f9a8d4; font-weight: 500; }
-        .vmm-desc { font-size: 10px; color: #94a3b8; }
+
+        .vmm-name {
+            font-size: 13px;
+            color: #f9a8d4;
+            font-weight: 500;
+        }
+
+        .vmm-desc {
+            font-size: 10px;
+            color: #94a3b8;
+        }
 
         /* VM Box */
         .vm-box {
@@ -214,6 +364,7 @@
             background: rgba(45, 212, 191, 0.04);
             position: relative;
         }
+
         .vm-box::before {
             content: '▣ MicroVM';
             position: absolute;
@@ -226,15 +377,27 @@
             color: #5eead4;
             letter-spacing: 1px;
         }
+
         .vm-inner {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            margin-top: 4px;
+            align-items: center;
+            gap: 0;
         }
-        .vm-inner .node { min-width: unset; width: 100%; padding: 10px 14px; }
-        .vm-inner .node-title { font-size: 13px; }
-        .vm-inner .node-desc { font-size: 10px; }
+
+        .vm-inner .node {
+            min-width: unset;
+            width: 100%;
+            padding: 10px 14px;
+        }
+
+        .vm-inner .node-title {
+            font-size: 13px;
+        }
+
+        .vm-inner .node-desc {
+            font-size: 10px;
+        }
 
         /* KVM dependency note */
         .dep-note {
@@ -245,13 +408,24 @@
             border-radius: 8px;
             border-left: 3px solid rgba(100, 116, 139, 0.4);
         }
-        .dep-note-title { font-size: 11px; color: #94a3b8; margin-bottom: 4px; }
-        .dep-items { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .dep-note-title {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .dep-items {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
         .dep-item {
             font-size: 10px;
             padding: 3px 8px;
             border-radius: 4px;
-            background: rgba(100,116,139,0.15);
+            background: rgba(100, 116, 139, 0.15);
             color: #cbd5e1;
         }
 
@@ -263,31 +437,66 @@
             border-radius: 12px;
             border: 1px solid rgba(148, 163, 184, 0.1);
         }
-        .legend h3 { color: #f8fafc; font-size: 16px; margin-bottom: 16px; }
+
+        .legend h3 {
+            color: #f8fafc;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+
         .legend-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 10px;
         }
+
         .legend-item {
             font-size: 12px;
             color: #94a3b8;
             line-height: 1.5;
             padding: 6px 0;
-            border-bottom: 1px solid rgba(148,163,184,0.06);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.06);
         }
-        .legend-item strong { color: #e2e8f0; }
+
+        .legend-item strong {
+            color: #e2e8f0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            color: #64748b;
+            font-size: 13px;
+            border-top: 1px solid rgba(148, 163, 184, 0.1);
+            margin-top: 60px;
+        }
 
         @media (max-width: 768px) {
-            .branches { flex-direction: column; gap: 30px; }
-            .branches::before { display: none; }
-            .branch { max-width: 100%; width: 100%; }
+            .branches {
+                flex-direction: column;
+                gap: 30px;
+            }
+
+            .branch-connector.left::after,
+            .branch-connector.right::after {
+                display: none;
+            }
+
+            .branch {
+                max-width: 100%;
+                width: 100%;
+            }
         }
     </style>
-<base target="_blank">
+    <base target="_blank">
 </head>
+
 <body>
     <div class="container">
+        <nav class="page-nav" aria-label="页面导航">
+            <a href="../../">返回首页</a>
+        </nav>
+
         <h1>Kubernetes 容器运行时架构</h1>
         <p class="subtitle">修正版：明确 RuntimeClass 决策点与 kata 的 VMM 可选后端关系</p>
 
@@ -299,7 +508,7 @@
                 <div class="node-desc">容器编排层 / 控制平面</div>
                 <span class="node-badge">通过 RuntimeClass 选择路径</span>
             </div>
-            <div class="vline"></div>
+            <div class="vline with-arrow"></div>
 
             <!-- Level 2: Kubelet -->
             <div class="node c-kubelet" style="width: 260px;">
@@ -307,7 +516,7 @@
                 <div class="node-desc">节点代理 / CRI 客户端实现</div>
                 <span class="node-badge">CRI 协议</span>
             </div>
-            <div class="vline"></div>
+            <div class="vline with-arrow"></div>
 
             <!-- Level 3: containerd -->
             <div class="node c-ctr" style="width: 320px;">
@@ -315,21 +524,22 @@
                 <div class="node-desc">高级容器运行时 (CRI 服务端) · Shim 调度</div>
                 <span class="node-badge">High-level Runtime</span>
             </div>
+            <div class="vline"></div>
 
             <!-- Split to branches -->
             <div class="branches">
 
                 <!-- ===== BRANCH A: runc ===== -->
                 <div class="branch">
+                    <div class="branch-connector left"></div>
                     <div class="branch-label">RuntimeClass: runc</div>
-                    <div class="vline" style="height: 20px;"></div>
 
                     <div class="node c-runtime" style="width: 100%;">
                         <div class="node-title">runc</div>
                         <div class="node-desc">低级别 OCI 运行时</div>
                         <span class="node-badge">Low-level Runtime</span>
                     </div>
-                    <div class="vline"></div>
+                    <div class="vline with-arrow"></div>
 
                     <div class="node c-container" style="width: 100%; border-style: dashed;">
                         <div class="node-title">Linux Container</div>
@@ -339,15 +549,15 @@
 
                 <!-- ===== BRANCH B: kata ===== -->
                 <div class="branch">
+                    <div class="branch-connector right"></div>
                     <div class="branch-label">RuntimeClass: kata</div>
-                    <div class="vline" style="height: 20px;"></div>
 
                     <div class="node c-runtime" style="width: 100%;">
                         <div class="node-title">Kata Containers</div>
                         <div class="node-desc">安全容器运行时 (containerd-shim-kata-v2)<br>为每个 Pod 创建轻量级 VM 沙箱</div>
                         <span class="node-badge">Sandboxed Runtime</span>
                     </div>
-                    <div class="vline"></div>
+                    <div class="vline with-arrow"></div>
 
                     <!-- VMM Selector -->
                     <div class="vmm-selector">
@@ -377,7 +587,7 @@
                         </div>
                     </div>
 
-                    <div class="vline"></div>
+                    <div class="vline with-arrow"></div>
 
                     <!-- KVM & Hardware -->
                     <div class="node c-kvm" style="width: 100%;">
@@ -385,14 +595,14 @@
                         <div class="node-desc">Linux 内核虚拟化模块<br>CPU/内存硬件加速</div>
                         <span class="node-badge">Kernel Virtualization</span>
                     </div>
-                    <div class="vline"></div>
+                    <div class="vline with-arrow"></div>
 
                     <div class="node c-hw" style="width: 100%;">
                         <div class="node-title">Hardware VT-x / AMD-V</div>
                         <div class="node-desc">CPU 硬件虚拟化扩展</div>
                         <span class="node-badge">Physical Layer</span>
                     </div>
-                    <div class="vline"></div>
+                    <div class="vline with-arrow"></div>
 
                     <!-- MicroVM -->
                     <div class="vm-box">
@@ -432,10 +642,12 @@
             <h3>📋 关键修正说明</h3>
             <div class="legend-grid">
                 <div class="legend-item">
-                    <strong>RuntimeClass 是决策点：</strong>containerd 根据 Pod 的 runtimeClassName 字段，决定调用 containerd-shim-runc-v2 还是 containerd-shim-kata-v2。
+                    <strong>RuntimeClass 是决策点：</strong>containerd 根据 Pod 的 runtimeClassName 字段，决定调用
+                    containerd-shim-runc-v2 还是 containerd-shim-kata-v2。
                 </div>
                 <div class="legend-item">
-                    <strong>VMM 是互斥配置：</strong>Kata 通过 /etc/kata-containers/configuration.toml 配置 <em>唯一</em> 的 hypervisor 后端（qemu / cloud-hypervisor / firecracker），不是同时加载三个。
+                    <strong>VMM 是互斥配置：</strong>Kata 通过 /etc/kata-containers/configuration.toml 配置 <em>唯一</em> 的
+                    hypervisor 后端（qemu / cloud-hypervisor / firecracker），不是同时加载三个。
                 </div>
                 <div class="legend-item">
                     <strong>runc 路径无虚拟化：</strong>runc 直接操作 Linux namespace 和 cgroup，不经过 KVM/VMM，与宿主机共享内核。
@@ -444,11 +656,20 @@
                     <strong>Kata 路径强依赖 KVM：</strong>VMM（QEMU/Cloud HV/Firecracker）必须通过 KVM 才能利用硬件虚拟化创建 MicroVM，否则无法启动。
                 </div>
                 <div class="legend-item">
-                    <strong>kata-agent 在 VM 内：</strong>与 runc 在宿主机直接启动容器不同，Kata 在 Guest OS 内启动 kata-agent，由 agent 再调用类似 runc 的逻辑创建最终容器。
+                    <strong>kata-agent 在 VM 内：</strong>与 runc 在宿主机直接启动容器不同，Kata 在 Guest OS 内启动 kata-agent，由 agent 再调用类似
+                    runc 的逻辑创建最终容器。
                 </div>
             </div>
         </div>
 
+        <footer>
+            <p>Kubernetes 容器运行时全栈架构 | 基于 K8s 1.30+ / containerd 1.7+ 整理</p>
+            <p style="margin-top: 10px; font-size: 0.85em;">
+                站内导航可返回
+                <a href="../../" style="color: #60a5fa; text-decoration: none;">首页</a>
+            </p>
+        </footer>
     </div>
 </body>
+
 </html>
