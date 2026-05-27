@@ -8,21 +8,21 @@
 .
 ├── index.html
 ├── notes/
-│   ├── index.html
-│   └── nvidia_deep_learning_tools/
+│   ├── nvidia_deep_learning_tools/
+│   │   └── index.html
+│   └── kubernetes_container_runtime/
 │       └── index.html
 └── README.md
 ```
 
-- `index.html`：站点首页，负责导航和精选入口。
-- `notes/index.html`：笔记归档页，集中展示全部内容。
+- `index.html`：站点首页，负责导航和自动发现所有笔记。
 - `notes/<slug>/index.html`：单篇笔记的规范路径。
 
 ## 在线访问
 
 - 首页：<https://mantastack.github.io/Manta-Learning-Journal/>
-- 笔记归档：<https://mantastack.github.io/Manta-Learning-Journal/notes/>
 - NVIDIA 深度学习工具全景图：<https://mantastack.github.io/Manta-Learning-Journal/notes/nvidia_deep_learning_tools/>
+- Kubernetes 容器运行时全栈架构：<https://mantastack.github.io/Manta-Learning-Journal/notes/kubernetes_container_runtime/>
 
 ## 发布
 
