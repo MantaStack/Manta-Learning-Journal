@@ -423,33 +423,10 @@
                     <a class="nav-link" href="./notes/">查看全部笔记</a>
                 </div>
 
-                <div class="entry-grid">
-                    <a class="entry-card" href="./notes/nvidia_deep_learning_tools/">
-                        <div class="entry-meta">
-                            <span class="pill">知识图谱</span>
-                            <span class="pill warm">NVIDIA</span>
-                        </div>
-                        <h3>NVIDIA 深度学习工具全景图</h3>
-                        <p>把 GPU 硬件、驱动、CUDA Runtime、加速库和上层框架串成一条完整链路，适合作为环境搭建和问题定位时的快速参照。</p>
-                    </a>
-
-                    <a class="entry-card" href="./notes/kubernetes_container_runtime/">
-                        <div class="entry-meta">
-                            <span class="pill">架构图</span>
-                            <span class="pill warm">Kubernetes</span>
-                        </div>
-                        <h3>Kubernetes 容器运行时全栈架构</h3>
-                        <p>从 K8s 控制平面到硬件虚拟化的完整调用链，涵盖 runc 与 Kata Containers 两条运行时路径的分层关系。</p>
-                    </a>
-
-                    <article class="entry-card">
-                        <div class="entry-meta">
-                            <span class="pill">结构升级</span>
-                            <span class="pill warm">Ready</span>
-                        </div>
-                        <h3>后续扩展方式已经稳定</h3>
-                        <p>新增内容推荐放到 `notes/&lt;slug&gt;/index.html`，首页只保留导航和精选入口，避免根目录继续堆积单篇文件。</p>
-                    </article>
+                <div class="entry-grid" id="entry-grid">
+                    <div class="entry-card" style="opacity:1;transform:none;animation:none;justify-content:center;align-items:center;min-height:120px;">
+                        <p style="color:var(--muted);">正在加载笔记…</p>
+                    </div>
                 </div>
             </section>
         </main>
@@ -458,6 +435,54 @@
             <p>MantaStack · Learning notes organized for fast recall and direct access.</p>
         </footer>
     </div>
+
+    <script>
+        (async () => {
+            const grid = document.getElementById('entry-grid');
+            if (!grid) return;
+            try {
+                const res = await fetch('https://api.github.com/repos/MantaStack/Manta-Learning-Journal/contents/notes');
+                if (!res.ok) throw new Error('API error');
+                const items = await res.json();
+                const dirs = items
+                    .filter(i => i.type === 'dir' && i.name !== 'index.html')
+                    .sort((a, b) => b.name.localeCompare(a.name));
+
+                if (dirs.length === 0) {
+                    grid.innerHTML = '<p style="color:var(--muted);">暂无笔记</p>';
+                    return;
+                }
+
+                grid.innerHTML = '';
+                dirs.forEach((d, idx) => {
+                    const a = document.createElement('a');
+                    a.className = 'entry-card';
+                    a.href = `./notes/${d.name}/`;
+                    a.style.animationDelay = `${idx * 0.1}s`;
+
+                    const meta = document.createElement('div');
+                    meta.className = 'entry-meta';
+                    const pill = document.createElement('span');
+                    pill.className = 'pill';
+                    pill.textContent = d.name.replace(/_/g, ' ');
+                    meta.appendChild(pill);
+
+                    const h3 = document.createElement('h3');
+                    h3.textContent = d.name.replace(/_/g, ' ');
+
+                    const p = document.createElement('p');
+                    p.textContent = '点击查看完整内容';
+
+                    a.appendChild(meta);
+                    a.appendChild(h3);
+                    a.appendChild(p);
+                    grid.appendChild(a);
+                });
+            } catch {
+                grid.innerHTML = '<p style="color:var(--muted);">加载失败，请前往 <a href="./notes/" style="color:var(--strong);">笔记归档</a> 查看</p>';
+            }
+        })();
+    </script>
 </body>
 
 </html>

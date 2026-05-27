@@ -309,24 +309,10 @@
                     </div>
                 </div>
 
-                <div class="archive-grid">
-                    <a class="archive-card" href="./nvidia_deep_learning_tools/">
-                        <div class="archive-meta">
-                            <span class="pill">Knowledge Map</span>
-                            <span class="pill warm">NVIDIA</span>
-                        </div>
-                        <h3>NVIDIA 深度学习工具全景图</h3>
-                        <p>梳理 GPU 硬件、驱动、CUDA、cuDNN、NCCL、容器和训练框架之间的分层关系，方便环境搭建与故障排查时快速对照。</p>
-                    </a>
-
-                    <a class="archive-card" href="./kubernetes_container_runtime/">
-                        <div class="archive-meta">
-                            <span class="pill">Architecture Diagram</span>
-                            <span class="pill warm">Kubernetes</span>
-                        </div>
-                        <h3>Kubernetes 容器运行时全栈架构</h3>
-                        <p>从 K8s 控制平面到硬件虚拟化的完整调用链，涵盖 runc 与 Kata Containers 两条运行时路径的分层关系。</p>
-                    </a>
+                <div class="archive-grid" id="archive-grid">
+                    <div class="archive-card" style="opacity:1;transform:none;justify-content:center;align-items:center;min-height:120px;">
+                        <p style="color:var(--muted);">正在加载笔记…</p>
+                    </div>
                 </div>
             </section>
         </main>
@@ -335,6 +321,53 @@
             <p>Archive page for stable, directly accessible study notes.</p>
         </footer>
     </div>
+
+    <script>
+        (async () => {
+            const grid = document.getElementById('archive-grid');
+            if (!grid) return;
+            try {
+                const res = await fetch('https://api.github.com/repos/MantaStack/Manta-Learning-Journal/contents/notes');
+                if (!res.ok) throw new Error('API error');
+                const items = await res.json();
+                const dirs = items
+                    .filter(i => i.type === 'dir' && i.name !== 'index.html')
+                    .sort((a, b) => b.name.localeCompare(a.name));
+
+                if (dirs.length === 0) {
+                    grid.innerHTML = '<p style="color:var(--muted);">暂无笔记</p>';
+                    return;
+                }
+
+                grid.innerHTML = '';
+                dirs.forEach((d, idx) => {
+                    const a = document.createElement('a');
+                    a.className = 'archive-card';
+                    a.href = `./${d.name}/`;
+
+                    const meta = document.createElement('div');
+                    meta.className = 'archive-meta';
+                    const pill = document.createElement('span');
+                    pill.className = 'pill';
+                    pill.textContent = d.name.replace(/_/g, ' ');
+                    meta.appendChild(pill);
+
+                    const h3 = document.createElement('h3');
+                    h3.textContent = d.name.replace(/_/g, ' ');
+
+                    const p = document.createElement('p');
+                    p.textContent = '点击查看完整内容';
+
+                    a.appendChild(meta);
+                    a.appendChild(h3);
+                    a.appendChild(p);
+                    grid.appendChild(a);
+                });
+            } catch {
+                grid.innerHTML = '<p style="color:var(--muted);">加载失败</p>';
+            }
+        })();
+    </script>
 </body>
 
 </html>
