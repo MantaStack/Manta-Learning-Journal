@@ -1,494 +1,607 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kubernetes 容器运行时架构图</title>
-    <meta name="description" content="Kubernetes 容器运行时全栈架构，从 K8s 控制平面到硬件虚拟化的完整调用链。">
-    <link rel="canonical" href="https://mantastack.github.io/Manta-Learning-Journal/notes/kubernetes_container_runtime/">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #e0e0e0;
-            min-height: 100vh;
-            padding: 40px 20px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kubernetes 容器运行时架构图</title>
+  <meta name="description" content="Kubernetes 容器运行时全栈架构，从 K8s 控制平面到硬件虚拟化的完整调用链。">
+  <link rel="canonical" href="https://mantastack.github.io/Manta-Learning-Journal/notes/kubernetes_container_runtime/">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-        .page-nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 24px;
-        }
-        .page-nav a {
-            display: inline-flex;
-            align-items: center;
-            min-height: 40px;
-            padding: 0 14px;
-            border-radius: 999px;
-            border: 1px solid rgba(255,255,255,0.14);
-            color: #b8c7e0;
-            text-decoration: none;
-            background: rgba(255,255,255,0.04);
-            transition: transform 0.25s ease, border-color 0.25s ease, color 0.25s ease;
-        }
-        .page-nav a:hover,
-        .page-nav a:focus-visible {
-            transform: translateY(-2px);
-            border-color: rgba(50, 108, 229, 0.45);
-            color: #fff;
-            outline: none;
-        }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
 
-        h1 {
-            text-align: center;
-            color: #fff;
-            margin-bottom: 10px;
-            font-size: 28px;
-            letter-spacing: 1px;
-        }
-        .subtitle {
-            text-align: center;
-            color: #8892b0;
-            margin-bottom: 40px;
-            font-size: 14px;
-        }
-        .architecture {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0;
-            position: relative;
-        }
-        .layer {
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: stretch;
-            position: relative;
-            margin: 8px 0;
-        }
-        .box {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            padding: 16px 24px;
-            text-align: center;
-            position: relative;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
-            min-width: 180px;
-        }
-        .box:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            border-color: rgba(255,255,255,0.3);
-        }
-        .box-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: #fff;
-            margin-bottom: 6px;
-        }
-        .box-desc {
-            font-size: 12px;
-            color: #8892b0;
-            line-height: 1.4;
-        }
-        .box-badge {
-            display: inline-block;
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-top: 6px;
-            font-weight: 500;
-        }
-        /* Color themes */
-        .k8s { background: rgba(50, 108, 229, 0.15); border-color: rgba(50, 108, 229, 0.4); }
-        .k8s .box-title { color: #64b5f6; }
-        .kubelet { background: rgba(50, 168, 82, 0.15); border-color: rgba(50, 168, 82, 0.4); }
-        .kubelet .box-title { color: #81c784; }
-        .containerd { background: rgba(255, 152, 0, 0.15); border-color: rgba(255, 152, 0, 0.4); }
-        .containerd .box-title { color: #ffb74d; }
-        .runtime { background: rgba(156, 39, 176, 0.15); border-color: rgba(156, 39, 176, 0.4); }
-        .runtime .box-title { color: #ce93d8; }
-        .vmm { background: rgba(233, 30, 99, 0.15); border-color: rgba(233, 30, 99, 0.4); }
-        .vmm .box-title { color: #f48fb1; }
-        .kernel { background: rgba(96, 125, 139, 0.15); border-color: rgba(96, 125, 139, 0.4); }
-        .kernel .box-title { color: #b0bec5; }
-        .hardware { background: rgba(121, 85, 72, 0.15); border-color: rgba(121, 85, 72, 0.4); }
-        .hardware .box-title { color: #bcaaa4; }
-        .guest { background: rgba(0, 150, 136, 0.15); border-color: rgba(0, 150, 136, 0.4); }
-        .guest .box-title { color: #80cbc4; }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
 
-        .arrow-down {
-            width: 2px;
-            height: 24px;
-            background: linear-gradient(to bottom, rgba(255,255,255,0.3), rgba(255,255,255,0.1));
-            position: relative;
-            margin: 0 auto;
-        }
-        .arrow-down::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 50%;
-            transform: translateX(-50%);
-            border-left: 5px solid transparent;
-            border-right: 5px solid transparent;
-            border-top: 6px solid rgba(255,255,255,0.3);
-        }
-        .arrow-label {
-            position: absolute;
-            left: calc(50% + 10px);
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 11px;
-            color: #8892b0;
-            white-space: nowrap;
-            background: rgba(26, 26, 46, 0.8);
-            padding: 0 6px;
-        }
+    .page-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
 
-        .branch-container {
-            display: flex;
-            gap: 30px;
-            width: 100%;
-            justify-content: center;
-            align-items: flex-start;
-        }
-        .branch {
-            flex: 1;
-            max-width: 360px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .branch-header {
-            font-size: 13px;
-            color: #8892b0;
-            margin-bottom: 12px;
-            padding: 4px 12px;
-            border-radius: 20px;
-            background: rgba(255,255,255,0.05);
-        }
-        .branch-connector {
-            width: 100%;
-            height: 30px;
-            position: relative;
-        }
-        .branch-connector::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 50%;
-            width: 2px;
-            height: 100%;
-            background: rgba(255,255,255,0.2);
-            transform: translateX(-50%);
-        }
-        .branch-connector.left::after,
-        .branch-connector.right::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            height: 2px;
-            width: 50%;
-            background: rgba(255,255,255,0.2);
-        }
-        .branch-connector.left::after { right: 50%; }
-        .branch-connector.right::after { left: 50%; }
+    .page-nav a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #b8c7e0;
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.04);
+      transition: transform 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+    }
 
-        .nested-box {
-            margin: 6px 0;
-            width: 90%;
-        }
-        .nested-box .box {
-            padding: 10px 16px;
-            min-width: unset;
-        }
-        .nested-box .box-title { font-size: 14px; }
-        .nested-box .box-desc { font-size: 11px; }
+    .page-nav a:hover,
+    .page-nav a:focus-visible {
+      transform: translateY(-2px);
+      border-color: rgba(50, 108, 229, 0.45);
+      color: #fff;
+      outline: none;
+    }
 
-        .split-join {
-            width: 60%;
-            height: 20px;
-            position: relative;
-            margin: 0 auto;
-        }
-        .split-join::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 50%;
-            width: 2px;
-            height: 100%;
-            background: rgba(255,255,255,0.2);
-            transform: translateX(-50%);
-        }
+    h1 {
+      text-align: center;
+      color: #fff;
+      margin-bottom: 10px;
+      font-size: 28px;
+      letter-spacing: 1px;
+    }
 
-        .vm-internals {
-            border: 2px dashed rgba(0, 150, 136, 0.3);
-            border-radius: 16px;
-            padding: 16px;
-            margin-top: 12px;
-            width: 100%;
-            background: rgba(0, 150, 136, 0.05);
-        }
-        .vm-internals-title {
-            text-align: center;
-            font-size: 12px;
-            color: #80cbc4;
-            margin-bottom: 12px;
-            letter-spacing: 1px;
-        }
+    .subtitle {
+      text-align: center;
+      color: #8892b0;
+      margin-bottom: 40px;
+      font-size: 14px;
+    }
 
-        .legend {
-            margin-top: 50px;
-            padding: 20px;
-            background: rgba(255,255,255,0.03);
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.08);
-        }
-        .legend-title {
-            font-size: 16px;
-            color: #fff;
-            margin-bottom: 16px;
-            font-weight: 600;
-        }
-        .legend-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 12px;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 13px;
-            color: #8892b0;
-        }
-        .legend-color {
-            width: 16px;
-            height: 16px;
-            border-radius: 4px;
-            flex-shrink: 0;
-        }
+    .architecture {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      position: relative;
+    }
 
-        footer {
-            text-align: center;
-            padding: 40px 0;
-            color: #5a6275;
-            font-size: 0.9em;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            margin-top: 50px;
-        }
+    .layer {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      position: relative;
+      margin: 8px 0;
+    }
 
-        @media (max-width: 768px) {
-            .branch-container { flex-direction: column; align-items: center; }
-            .branch { max-width: 100%; width: 100%; }
-            .box { min-width: unset; width: 90%; }
-        }
-    </style>
-<base target="_blank">
+    .box {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px 24px;
+      text-align: center;
+      position: relative;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+      min-width: 180px;
+    }
+
+    .box:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .box-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .box-desc {
+      font-size: 12px;
+      color: #8892b0;
+      line-height: 1.4;
+    }
+
+    .box-badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-top: 6px;
+      font-weight: 500;
+    }
+
+    /* Color themes */
+    .k8s {
+      background: rgba(50, 108, 229, 0.15);
+      border-color: rgba(50, 108, 229, 0.4);
+    }
+
+    .k8s .box-title {
+      color: #64b5f6;
+    }
+
+    .kubelet {
+      background: rgba(50, 168, 82, 0.15);
+      border-color: rgba(50, 168, 82, 0.4);
+    }
+
+    .kubelet .box-title {
+      color: #81c784;
+    }
+
+    .containerd {
+      background: rgba(255, 152, 0, 0.15);
+      border-color: rgba(255, 152, 0, 0.4);
+    }
+
+    .containerd .box-title {
+      color: #ffb74d;
+    }
+
+    .runtime {
+      background: rgba(156, 39, 176, 0.15);
+      border-color: rgba(156, 39, 176, 0.4);
+    }
+
+    .runtime .box-title {
+      color: #ce93d8;
+    }
+
+    .vmm {
+      background: rgba(233, 30, 99, 0.15);
+      border-color: rgba(233, 30, 99, 0.4);
+    }
+
+    .vmm .box-title {
+      color: #f48fb1;
+    }
+
+    .kernel {
+      background: rgba(96, 125, 139, 0.15);
+      border-color: rgba(96, 125, 139, 0.4);
+    }
+
+    .kernel .box-title {
+      color: #b0bec5;
+    }
+
+    .hardware {
+      background: rgba(121, 85, 72, 0.15);
+      border-color: rgba(121, 85, 72, 0.4);
+    }
+
+    .hardware .box-title {
+      color: #bcaaa4;
+    }
+
+    .guest {
+      background: rgba(0, 150, 136, 0.15);
+      border-color: rgba(0, 150, 136, 0.4);
+    }
+
+    .guest .box-title {
+      color: #80cbc4;
+    }
+
+    .arrow-down {
+      width: 2px;
+      height: 24px;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+      position: relative;
+      margin: 0 auto;
+    }
+
+    .arrow-down::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .arrow-label {
+      position: absolute;
+      left: calc(50% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      color: #8892b0;
+      white-space: nowrap;
+      background: rgba(26, 26, 46, 0.8);
+      padding: 0 6px;
+    }
+
+    .branch-container {
+      display: flex;
+      gap: 30px;
+      width: 100%;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .branch {
+      flex: 1;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .branch-header {
+      font-size: 13px;
+      color: #8892b0;
+      margin-bottom: 12px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .branch-connector {
+      width: 100%;
+      height: 30px;
+      position: relative;
+    }
+
+    .branch-connector::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 2px;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateX(-50%);
+    }
+
+    .branch-connector.left::after,
+    .branch-connector.right::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      height: 2px;
+      width: 50%;
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .branch-connector.left::after {
+      right: 50%;
+    }
+
+    .branch-connector.right::after {
+      left: 50%;
+    }
+
+    .nested-box {
+      margin: 6px 0;
+      width: 90%;
+    }
+
+    .nested-box .box {
+      padding: 10px 16px;
+      min-width: unset;
+    }
+
+    .nested-box .box-title {
+      font-size: 14px;
+    }
+
+    .nested-box .box-desc {
+      font-size: 11px;
+    }
+
+    .split-join {
+      width: 60%;
+      height: 20px;
+      position: relative;
+      margin: 0 auto;
+    }
+
+    .split-join::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 2px;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateX(-50%);
+    }
+
+    .vm-internals {
+      border: 2px dashed rgba(0, 150, 136, 0.3);
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 12px;
+      width: 100%;
+      background: rgba(0, 150, 136, 0.05);
+    }
+
+    .vm-internals-title {
+      text-align: center;
+      font-size: 12px;
+      color: #80cbc4;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+
+    .legend {
+      margin-top: 50px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .legend-title {
+      font-size: 16px;
+      color: #fff;
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #8892b0;
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    footer {
+      text-align: center;
+      padding: 40px 0;
+      color: #5a6275;
+      font-size: 0.9em;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin-top: 50px;
+    }
+
+    @media (max-width: 768px) {
+      .branch-container {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .branch {
+        max-width: 100%;
+        width: 100%;
+      }
+
+      .box {
+        min-width: unset;
+        width: 90%;
+      }
+    }
+  </style>
+  <base target="_blank">
 </head>
+
 <body>
-    <div class="container">
-        <nav class="page-nav" aria-label="页面导航">
-            <a href="../../">返回首页</a>
-            <a href="../">返回归档</a>
-        </nav>
+  <div class="container">
+    <nav class="page-nav" aria-label="页面导航">
+      <a href="../../">返回首页</a>
+      <a href="../">返回归档</a>
+    </nav>
 
-        <h1>🔷 Kubernetes 容器运行时全栈架构</h1>
-        <p class="subtitle">从 K8s 控制平面到硬件虚拟化的完整调用链</p>
+    <h1>🔷 Kubernetes 容器运行时全栈架构</h1>
+    <p class="subtitle">从 K8s 控制平面到硬件虚拟化的完整调用链</p>
 
-        <div class="architecture">
+    <div class="architecture">
 
-            <!-- Layer 1: Kubernetes -->
-            <div class="layer">
-                <div class="box k8s" style="width: 320px;">
-                    <div class="box-title">Kubernetes</div>
-                    <div class="box-desc">容器编排层 / 控制平面<br>调度、服务发现、扩缩容</div>
-                    <span class="box-badge" style="background: rgba(100,181,246,0.2); color: #64b5f6;">编排 Orchestration</span>
-                </div>
-            </div>
-            <div class="arrow-down"><span class="arrow-label">CRI 协议</span></div>
+      <!-- Layer 1: Kubernetes -->
+      <div class="layer">
+        <div class="box k8s" style="width: 320px;">
+          <div class="box-title">Kubernetes</div>
+          <div class="box-desc">容器编排层 / 控制平面<br>调度、服务发现、扩缩容</div>
+          <span class="box-badge" style="background: rgba(100,181,246,0.2); color: #64b5f6;">编排 Orchestration</span>
+        </div>
+      </div>
+      <div class="arrow-down"><span class="arrow-label">CRI 协议</span></div>
 
-            <!-- Layer 2: Kubelet -->
-            <div class="layer">
-                <div class="box kubelet" style="width: 300px;">
-                    <div class="box-title">kubelet</div>
-                    <div class="box-desc">节点代理 / CRI 客户端<br>Pod 生命周期、资源监控、健康检查</div>
-                    <span class="box-badge" style="background: rgba(129,199,132,0.2); color: #81c784;">Node Agent</span>
-                </div>
-            </div>
-            <div class="arrow-down"><span class="arrow-label">gRPC</span></div>
+      <!-- Layer 2: Kubelet -->
+      <div class="layer">
+        <div class="box kubelet" style="width: 300px;">
+          <div class="box-title">kubelet</div>
+          <div class="box-desc">节点代理 / CRI 客户端<br>Pod 生命周期、资源监控、健康检查</div>
+          <span class="box-badge" style="background: rgba(129,199,132,0.2); color: #81c784;">Node Agent</span>
+        </div>
+      </div>
+      <div class="arrow-down"><span class="arrow-label">gRPC</span></div>
 
-            <!-- Layer 3: containerd -->
-            <div class="layer">
-                <div class="box containerd" style="width: 340px;">
-                    <div class="box-title">containerd</div>
-                    <div class="box-desc">高级容器运行时 (CRI 服务端)<br>镜像管理、容器生命周期、存储/网络、Shim 调度</div>
-                    <span class="box-badge" style="background: rgba(255,183,77,0.2); color: #ffb74d;">High-level Runtime</span>
-                </div>
-            </div>
+      <!-- Layer 3: containerd -->
+      <div class="layer">
+        <div class="box containerd" style="width: 340px;">
+          <div class="box-title">containerd</div>
+          <div class="box-desc">高级容器运行时 (CRI 服务端)<br>镜像管理、容器生命周期、存储/网络、Shim 调度</div>
+          <span class="box-badge" style="background: rgba(255,183,77,0.2); color: #ffb74d;">High-level Runtime</span>
+        </div>
+      </div>
 
-            <!-- Split to branches -->
-            <div class="split-join"></div>
+      <!-- Split to branches -->
+      <div class="split-join"></div>
 
-            <!-- Layer 4: Branches -->
-            <div class="layer branch-container">
+      <!-- Layer 4: Branches -->
+      <div class="layer branch-container">
 
-                <!-- Branch A: runc -->
-                <div class="branch">
-                    <div class="branch-header">RuntimeClass: runc</div>
-                    <div class="branch-connector left"></div>
-                    <div class="box runtime" style="width: 100%;">
-                        <div class="box-title">runc</div>
-                        <div class="box-desc">低级别 OCI 运行时<br>Namespace / Cgroup / 标准 Linux 容器</div>
-                        <span class="box-badge" style="background: rgba(206,147,216,0.2); color: #ce93d8;">Low-level Runtime</span>
-                    </div>
-                    <div class="arrow-down"></div>
-                    <div class="box" style="width: 100%; background: rgba(255,255,255,0.03); border-style: dashed;">
-                        <div class="box-title" style="color: #e0e0e0;">Linux Container</div>
-                        <div class="box-desc">共享宿主机内核<br>进程级隔离</div>
-                    </div>
-                </div>
-
-                <!-- Branch B: kata -->
-                <div class="branch">
-                    <div class="branch-header">RuntimeClass: kata</div>
-                    <div class="branch-connector right"></div>
-                    <div class="box runtime" style="width: 100%;">
-                        <div class="box-title">Kata Containers</div>
-                        <div class="box-desc">安全容器运行时 (containerd-shim)<br>为每个容器启动轻量级虚拟机</div>
-                        <span class="box-badge" style="background: rgba(206,147,216,0.2); color: #ce93d8;">Sandboxed Runtime</span>
-                    </div>
-                    <div class="arrow-down"></div>
-
-                    <!-- VMM Options -->
-                    <div style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
-                        <div class="nested-box">
-                            <div class="box vmm">
-                                <div class="box-title">QEMU</div>
-                                <div class="box-desc">全能型 VMM，设备最丰富<br>Kata 2.x 默认后端</div>
-                            </div>
-                        </div>
-                        <div class="nested-box">
-                            <div class="box vmm">
-                                <div class="box-title">Cloud Hypervisor</div>
-                                <div class="box-desc">Rust 编写，专为云原生优化<br>轻量、启动快</div>
-                            </div>
-                        </div>
-                        <div class="nested-box">
-                            <div class="box vmm">
-                                <div class="box-title">Firecracker</div>
-                                <div class="box-desc">AWS MicroVM，极简安全<br>Serverless 场景</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="arrow-down"></div>
-
-                    <!-- KVM Layer -->
-                    <div class="box kernel" style="width: 100%;">
-                        <div class="box-title">KVM (内核模块)</div>
-                        <div class="box-desc">CPU 虚拟化 (VMX/SVM)<br>内存虚拟化 (EPT/NPT)</div>
-                        <span class="box-badge" style="background: rgba(176,190,197,0.2); color: #b0bec5;">Kernel Virtualization</span>
-                    </div>
-                    <div class="arrow-down"></div>
-
-                    <!-- Hardware Layer -->
-                    <div class="box hardware" style="width: 100%;">
-                        <div class="box-title">Hardware VT-x / AMD-V</div>
-                        <div class="box-desc">CPU 硬件虚拟化扩展<br>IOMMU 设备直通支持</div>
-                        <span class="box-badge" style="background: rgba(188,170,164,0.2); color: #bcaaa4;">Physical Layer</span>
-                    </div>
-                    <div class="arrow-down"></div>
-
-                    <!-- VM Internals -->
-                    <div class="vm-internals">
-                        <div class="vm-internals-title">▣ MicroVM 内部结构</div>
-                        <div class="nested-box">
-                            <div class="box guest">
-                                <div class="box-title">Guest OS (精简内核)</div>
-                                <div class="box-desc">独立内核空间，与宿主机隔离</div>
-                            </div>
-                        </div>
-                        <div class="arrow-down" style="height: 16px;"></div>
-                        <div class="nested-box">
-                            <div class="box guest" style="background: rgba(0,150,136,0.1);">
-                                <div class="box-title">kata-agent</div>
-                                <div class="box-desc">Guest 内容器生命周期管理<br>对接 OCI 规范</div>
-                            </div>
-                        </div>
-                        <div class="arrow-down" style="height: 16px;"></div>
-                        <div class="nested-box">
-                            <div class="box" style="background: rgba(255,255,255,0.05); border-style: dashed;">
-                                <div class="box-title" style="color: #e0e0e0;">Container Workload</div>
-                                <div class="box-desc">实际业务容器进程</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+        <!-- Branch A: runc -->
+        <div class="branch">
+          <div class="branch-header">RuntimeClass: runc</div>
+          <div class="branch-connector left"></div>
+          <div class="box runtime" style="width: 100%;">
+            <div class="box-title">runc</div>
+            <div class="box-desc">低级别 OCI 运行时<br>Namespace / Cgroup / 标准 Linux 容器</div>
+            <span class="box-badge" style="background: rgba(206,147,216,0.2); color: #ce93d8;">Low-level Runtime</span>
+          </div>
+          <div class="arrow-down"></div>
+          <div class="box" style="width: 100%; background: rgba(255,255,255,0.03); border-style: dashed;">
+            <div class="box-title" style="color: #e0e0e0;">Linux Container</div>
+            <div class="box-desc">共享宿主机内核<br>进程级隔离</div>
+          </div>
         </div>
 
-        <!-- Legend -->
-        <div class="legend">
-            <div class="legend-title">📋 架构说明</div>
-            <div class="legend-grid">
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #326ce5;"></div>
-                    <span><strong>Kubernetes</strong>：声明式编排，通过 RuntimeClass 决定走 runc 或 kata 路径</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #32a852;"></div>
-                    <span><strong>kubelet</strong>：唯一与容器运行时交互的 K8s 组件，实现 CRI 客户端</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #ff9800;"></div>
-                    <span><strong>containerd</strong>：枢纽层，根据 RuntimeClass 分发到 runc 或 kata-shim</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #9c27b0;"></div>
-                    <span><strong>runc vs Kata</strong>：runc 共享内核；Kata 为每个 Pod 创建独立 VM 沙箱</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #e91e63;"></div>
-                    <span><strong>VMM 层</strong>：QEMU 功能最全；Cloud Hypervisor 最轻量；Firecracker 极简</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #607d8b;"></div>
-                    <span><strong>KVM</strong>：所有 VMM 的硬件加速底座（Cloud Hypervisor 也可对接 MSHV）</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #009688;"></div>
-                    <span><strong>MicroVM</strong>：Kata 启动的轻量虚拟机，内含独立内核 + kata-agent</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #795548;"></div>
-                    <span><strong>Hardware</strong>：CPU 虚拟化扩展（Intel VT-x / AMD-V）是一切硬件加速的前提</span>
-                </div>
-            </div>
-        </div>
+        <!-- Branch B: kata -->
+        <div class="branch">
+          <div class="branch-header">RuntimeClass: kata</div>
+          <div class="branch-connector right"></div>
+          <div class="box runtime" style="width: 100%;">
+            <div class="box-title">Kata Containers</div>
+            <div class="box-desc">安全容器运行时 (containerd-shim)<br>为每个容器启动轻量级虚拟机</div>
+            <span class="box-badge" style="background: rgba(206,147,216,0.2); color: #ce93d8;">Sandboxed Runtime</span>
+          </div>
+          <div class="arrow-down"></div>
 
-        <footer>
-            <p>Kubernetes 容器运行时全栈架构 | 基于 K8s 1.30+ / containerd 1.7+ 整理</p>
-            <p style="margin-top: 10px; font-size: 0.85em;">
-                站内导航可返回
-                <a href="../../" style="color: #64b5f6; text-decoration: none;">首页</a>
-                或
-                <a href="../" style="color: #64b5f6; text-decoration: none;">笔记归档</a>
-            </p>
-        </footer>
+          <!-- VMM Options -->
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
+            <div class="nested-box">
+              <div class="box vmm">
+                <div class="box-title">QEMU</div>
+                <div class="box-desc">全能型 VMM，设备最丰富<br>Kata 2.x 默认后端</div>
+              </div>
+            </div>
+            <div class="nested-box">
+              <div class="box vmm">
+                <div class="box-title">Cloud Hypervisor</div>
+                <div class="box-desc">Rust 编写，专为云原生优化<br>轻量、启动快</div>
+              </div>
+            </div>
+            <div class="nested-box">
+              <div class="box vmm">
+                <div class="box-title">Firecracker</div>
+                <div class="box-desc">AWS MicroVM，极简安全<br>Serverless 场景</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="arrow-down"></div>
+
+          <!-- KVM Layer -->
+          <div class="box kernel" style="width: 100%;">
+            <div class="box-title">KVM (内核模块)</div>
+            <div class="box-desc">CPU 虚拟化 (VMX/SVM)<br>内存虚拟化 (EPT/NPT)</div>
+            <span class="box-badge" style="background: rgba(176,190,197,0.2); color: #b0bec5;">Kernel
+              Virtualization</span>
+          </div>
+          <div class="arrow-down"></div>
+
+          <!-- Hardware Layer -->
+          <div class="box hardware" style="width: 100%;">
+            <div class="box-title">Hardware VT-x / AMD-V</div>
+            <div class="box-desc">CPU 硬件虚拟化扩展<br>IOMMU 设备直通支持</div>
+            <span class="box-badge" style="background: rgba(188,170,164,0.2); color: #bcaaa4;">Physical Layer</span>
+          </div>
+          <div class="arrow-down"></div>
+
+          <!-- VM Internals -->
+          <div class="vm-internals">
+            <div class="vm-internals-title">▣ MicroVM 内部结构</div>
+            <div class="nested-box">
+              <div class="box guest">
+                <div class="box-title">Guest OS (精简内核)</div>
+                <div class="box-desc">独立内核空间，与宿主机隔离</div>
+              </div>
+            </div>
+            <div class="arrow-down" style="height: 16px;"></div>
+            <div class="nested-box">
+              <div class="box guest" style="background: rgba(0,150,136,0.1);">
+                <div class="box-title">kata-agent</div>
+                <div class="box-desc">Guest 内容器生命周期管理<br>对接 OCI 规范</div>
+              </div>
+            </div>
+            <div class="arrow-down" style="height: 16px;"></div>
+            <div class="nested-box">
+              <div class="box" style="background: rgba(255,255,255,0.05); border-style: dashed;">
+                <div class="box-title" style="color: #e0e0e0;">Container Workload</div>
+                <div class="box-desc">实际业务容器进程</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-title">📋 架构说明</div>
+      <div class="legend-grid">
+        <div class="legend-item">
+          <div class="legend-color" style="background: #326ce5;"></div>
+          <span><strong>Kubernetes</strong>：声明式编排，通过 RuntimeClass 决定走 runc 或 kata 路径</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #32a852;"></div>
+          <span><strong>kubelet</strong>：唯一与容器运行时交互的 K8s 组件，实现 CRI 客户端</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #ff9800;"></div>
+          <span><strong>containerd</strong>：枢纽层，根据 RuntimeClass 分发到 runc 或 kata-shim</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #9c27b0;"></div>
+          <span><strong>runc vs Kata</strong>：runc 共享内核；Kata 为每个 Pod 创建独立 VM 沙箱</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #e91e63;"></div>
+          <span><strong>VMM 层</strong>：QEMU 功能最全；Cloud Hypervisor 最轻量；Firecracker 极简</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #607d8b;"></div>
+          <span><strong>KVM</strong>：所有 VMM 的硬件加速底座（Cloud Hypervisor 也可对接 MSHV）</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #009688;"></div>
+          <span><strong>MicroVM</strong>：Kata 启动的轻量虚拟机，内含独立内核 + kata-agent</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background: #795548;"></div>
+          <span><strong>Hardware</strong>：CPU 虚拟化扩展（Intel VT-x / AMD-V）是一切硬件加速的前提</span>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>Kubernetes 容器运行时全栈架构 | 基于 K8s 1.30+ / containerd 1.7+ 整理</p>
+      <p style="margin-top: 10px; font-size: 0.85em;">
+        站内导航可返回
+        <a href="../../" style="color: #64b5f6; text-decoration: none;">首页</a>
+        或
+        <a href="../" style="color: #64b5f6; text-decoration: none;">笔记归档</a>
+      </p>
+    </footer>
+  </div>
 </body>
+
 </html>
