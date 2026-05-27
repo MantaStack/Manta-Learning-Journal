@@ -221,55 +221,59 @@
         }
 
         /* Branch container */
+        .branch-split {
+            width: min(100%, 900px);
+            height: 54px;
+            position: relative;
+        }
+
+        .branch-split::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 2px;
+            height: 26px;
+            background: rgba(148, 163, 184, 0.2);
+            transform: translateX(-50%);
+        }
+
+        .branch-split::after {
+            content: '';
+            position: absolute;
+            top: 26px;
+            left: 25%;
+            right: 25%;
+            height: 2px;
+            background: rgba(148, 163, 184, 0.2);
+        }
+
         .branches {
             display: flex;
-            width: 100%;
+            width: min(100%, 900px);
             justify-content: center;
             gap: 60px;
             position: relative;
         }
 
         .branch {
-            flex: 1;
+            flex: 1 1 0;
             max-width: 420px;
             display: flex;
             flex-direction: column;
             align-items: center;
-        }
-
-        .branch-connector {
-            width: 100%;
-            height: 28px;
             position: relative;
         }
 
-        .branch-connector::before {
+        .branch::before {
             content: '';
             position: absolute;
-            top: 0;
+            top: -28px;
             left: 50%;
             width: 2px;
-            height: 100%;
+            height: 28px;
             background: rgba(148, 163, 184, 0.2);
             transform: translateX(-50%);
-        }
-
-        .branch-connector.left::after,
-        .branch-connector.right::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            height: 2px;
-            width: calc(50% + 30px);
-            background: rgba(148, 163, 184, 0.2);
-        }
-
-        .branch-connector.left::after {
-            right: 50%;
-        }
-
-        .branch-connector.right::after {
-            left: 50%;
         }
 
         .branch-label {
@@ -472,13 +476,17 @@
         }
 
         @media (max-width: 768px) {
+            .branch-split {
+                display: none;
+            }
+
             .branches {
+                width: 100%;
                 flex-direction: column;
                 gap: 30px;
             }
 
-            .branch-connector.left::after,
-            .branch-connector.right::after {
+            .branch::before {
                 display: none;
             }
 
@@ -524,14 +532,12 @@
                 <div class="node-desc">高级容器运行时 (CRI 服务端) · Shim 调度</div>
                 <span class="node-badge">High-level Runtime</span>
             </div>
-            <div class="vline"></div>
-
             <!-- Split to branches -->
+            <div class="branch-split"></div>
             <div class="branches">
 
                 <!-- ===== BRANCH A: runc ===== -->
                 <div class="branch">
-                    <div class="branch-connector left"></div>
                     <div class="branch-label">RuntimeClass: runc</div>
 
                     <div class="node c-runtime" style="width: 100%;">
@@ -549,7 +555,6 @@
 
                 <!-- ===== BRANCH B: kata ===== -->
                 <div class="branch">
-                    <div class="branch-connector right"></div>
                     <div class="branch-label">RuntimeClass: kata</div>
 
                     <div class="node c-runtime" style="width: 100%;">
